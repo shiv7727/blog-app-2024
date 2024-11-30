@@ -2,8 +2,10 @@ import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import userRoutes from './routes/user.route.js';
+import blogRoutes from './routes/blog.route.js';
 import fileUpload from 'express-fileupload';
 import cloudinary from 'cloudinary';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 const app = express();
@@ -20,6 +22,7 @@ app.use(
 		tempFileDir: '/tmp/',
 	}),
 );
+app.use(cookieParser());
 
 // Cloudinary setup
 // Configuration
@@ -45,6 +48,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/user', userRoutes);
+app.use('/api/blog', blogRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
