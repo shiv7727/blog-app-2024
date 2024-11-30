@@ -5,72 +5,84 @@ import createTokenAndSaveCookie from '../jwt/AuthToken.js';
 
 // register controller func
 export const register = async (req, res, next) => {
-	if (!req.files || Object.keys(req.files).length === 0) {
-		return res.status(400).json({
-			message: 'No file uploaded photo is required ',
+	try {
+		if (!req.files || Object.keys(req.files).length === 0) {
+			return res.status(400).json({
+				message: 'No file uploaded photo is required ',
+			});
+		}
+
+		const photo = req.files.photo;
+
+		const allowedFormats = ['image/jpeg', 'image/png', 'image/jpeg'];
+
+		if (!allowedFormats.includes(photo.mimetype)) {
+			return res.status(400).json({
+				message: 'Invalid photo format. Only jpg and png allowed ',
+			});
+		}
+
+		const { email, name, password, phone, education, role } = req.body;
+		if (
+			!email ||
+			!name ||
+			!password ||
+			!phone ||
+			!education ||
+			!role ||
+			!photo
+		) {
+			return res.status(400).json({
+				message: 'All Fields are required',
+			});
+		}
+
+		const user = await User.findOne({ email });
+		if (user) {
+			return res.status(400).json({
+				message: 'User already exists!!',
+			});
+		}
+
+		// Upload an image
+		const cloudinaryResponse = await cloudinary.uploader.upload(
+			photo.tempFilePath,
+		);
+
+		if (!cloudinaryResponse || cloudinary.error) {
+			console.log(cloudinaryResponse.error);
+			return;
+		}
+
+		const hashPassword = await bcrypt.hash(password, 10);
+
+		const newUser = new User({
+			email,
+			name,
+			photo: {
+				public_id: cloudinaryResponse.public_id,
+				url: cloudinaryResponse.url,
+			},
+			phone,
+			education,
+			role,
+			password: hashPassword,
+		});
+		await newUser.save();
+
+		if (newUser) {
+			const token = await createTokenAndSaveCookie(newUser._id, res);
+			return res.status(201).json({
+				message: 'User registered successfully !',
+				user: newUser,
+				token,
+			});
+		}
+	} catch (error) {
+		return res.status(500).json({
+			error: 'Internal server error',
 		});
 	}
-
-	const photo = req.files.photo;
-
-	const allowedFormats = ['image/jpeg', 'image/png', 'image/jpeg'];
-
-	if (!allowedFormats.includes(photo.mimetype)) {
-		return res.status(400).json({
-			message: 'Invalid photo format. Only jpg and png allowed ',
-		});
-	}
-
-	const { email, name, password, phone, education, role } = req.body;
-	if (!email || !name || !password || !phone || !education || !role || !photo) {
-		return res.status(400).json({
-			message: 'All Fields are required',
-		});
-	}
-
-	const user = await User.findOne({ email });
-	if (user) {
-		return res.status(400).json({
-			message: 'User already exists!!',
-		});
-	}
-
-	// Upload an image
-	const cloudinaryResponse = await cloudinary.uploader.upload(
-		photo.tempFilePath,
-	);
-
-	if (!cloudinaryResponse || cloudinary.error) {
-		console.log(cloudinaryResponse.error);
-		return;
-	}
-
-	const hashPassword = await bcrypt.hash(password, 10);
-
-	const newUser = new User({
-		email,
-		name,
-		photo: {
-			public_id: cloudinaryResponse.public_id,
-			url: cloudinaryResponse.url,
-		},
-		phone,
-		education,
-		role,
-		password: hashPassword,
-	});
-	await newUser.save();
-
-	if (newUser) {
-		const token = await createTokenAndSaveCookie(newUser._id, res);
-		return res.status(201).json({
-			message: 'User registered successfully !',
-			user: newUser,
-			token,
-		});
-	}
-
-	res.send('Hello from register controller');
 };
 
 // login controller function
@@ -120,6 +132,19 @@ export const login = async (req, res, next) => {
 		});
 	} catch (error) {
 		console.log('error', error);
+		return res.status(500).json({
+			message: 'Internal server error',
+		});
+	}
+};
+
+export const logout = async (req, res) => {
+	try {
+		res.clearCookie('jwt', { httpOnly: true });
+		res.status(200).json({
+			message: 'User logout successfully !!',
+		});
+	} catch (error) {
 		return res.status(500).json({
 			message: 'Internal server error',
 		});
