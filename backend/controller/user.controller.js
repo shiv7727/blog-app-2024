@@ -97,14 +97,20 @@ export const login = async (req, res, next) => {
 				message: 'Please fill required fields',
 			});
 		}
+
 		const user = await User.findOne({ email }).select('+password');
+
+		if (!user) {
+			return res.status(400).json({
+				message: 'User not found',
+			});
+		}
 
 		if (!user.password) {
 			return res.status(400).json({
 				message: 'User password is missing',
 			});
 		}
-
 		const isMatch = await bcrypt.compare(password, user.password);
 
 		if (!user || !isMatch) {
@@ -150,4 +156,11 @@ export const logout = async (req, res) => {
 			message: 'Internal server error',
 		});
 	}
+};
+
+export const getMyProfile = async (req, res) => {
+	const user = await req.user;
+	return res.status(200).json({
+		user,
+	});
 };
